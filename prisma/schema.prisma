@@ -1,0 +1,119 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  gameTables    GameTable[]     @relation("GameTablePlayers")
+  dmTables      GameTable[]     @relation("DungeonMaster")
+  // Optional for WebAuthn support
+  Authenticator Authenticator[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+model Authenticator {
+  credentialId         String  @unique
+  userId               String
+  providerAccountId    String
+  credentialPublicKey  String
+  counter              Int
+  credentialDeviceType String
+  credentialBackedUp   Boolean
+  tranposrts           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, credentialId])
+}
+
+model GameTable {
+  id            Int        @id @default(autoincrement())
+  title         String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  systemId      Int
+  gameSystem    GameSystem @relation(fields: [systemId], references: [id])
+  dmId          String
+  dungeonMaster User       @relation("DungeonMaster", fields: [dmId], references: [id])
+  players       User[]     @relation("GameTablePlayers")
+}
+
+model GameSystem {
+  id         Int              @id @default(autoincrement())
+  name       String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  gameTables GameTable[]
+  resources  SystemResource[]
+}
+
+model SystemResource {
+  id         Int        @id @default(autoincrement())
+  type       String // Type can be 'Class', 'Race', 'Background', 'Feat', 'Spell', 'Item', 'Monster'
+  name       String
+  image      String
+  details    Json
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  systemId   Int
+  gameSystem GameSystem @relation(fields: [systemId], references: [id])
+}
